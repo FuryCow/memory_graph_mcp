@@ -135,17 +135,29 @@ function collectSqlFromString(text: string, out: Extracted): void {
   for (const m of body.matchAll(/\bdelete\s+from\s+([a-zA-Z_][\w.]*)/gi)) writes.push(m[1]);
   const work = body.replace(/\b(?:insert\s+into|update|delete\s+from)\s+[a-zA-Z_][\w.]*/gi, " ");
   const reads = [...work.matchAll(/\bfrom\s+([a-zA-Z_][\w.]*)/gi)].map((m) => m[1]);
-  out.tableReads.push(...reads);
-  out.tableWrites.push(...writes);
+  out.tableReads.push(...reads.filter(validTableName));
+  out.tableWrites.push(...writes.filter(validTableName));
 }
+
+/** Filter obvious SQL-heuristic false positives (qualified names, junk tokens). */
+function validTableName(t: string): boolean {
+  if (!/^[a-z_][a-z0-9_]*$/i.test(t)) return false; // reject dotted / odd tokens like "time."
+  if (SQL_NOISE_WORDS.has(t.toLowerCase())) return false;
+  return true;
+}
+
+const SQL_NOISE_WORDS = new Set([
+  "the", "this", "where", "select", "insert", "update", "delete", "from", "set", "values",
+  "dual", "your", "you", "table", "schema", "here", "query", "example",
+]);
 
 /** ORM patterns: prisma `prisma.user.findMany()`, drizzle `db.select().from(users)` */
 const ORM_READ = /\b(?:prisma|db)\.([a-zA-Z_]\w*)\.(?:findMany|findFirst|findUnique|select|get)\b/g;
 const ORM_WRITE = /\b(?:prisma|db)\.([a-zA-Z_]\w*)\.(?:create|update|delete|upsert|insert|set)\b/g;
 
 function extractOrmTables(text: string, out: Extracted): void {
-  for (const m of text.matchAll(ORM_READ)) out.tableReads.push(m[1]);
-  for (const m of text.matchAll(ORM_WRITE)) out.tableWrites.push(m[1]);
+  for (const m of text.matchAll(ORM_READ)) if (validTableName(m[1])) out.tableReads.push(m[1]);
+  for (const m of text.matchAll(ORM_WRITE)) if (validTableName(m[1])) out.tableWrites.push(m[1]);
 }
 
 function resolveImport(fromFile: string, spec: string, rootDir: string): string | null {

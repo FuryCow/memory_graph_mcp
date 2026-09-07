@@ -1,11 +1,12 @@
 /**
  * MCP tool registrations.
- * Stage 2: graph_stats is live (AST indexer); the rest remain stubs for stages 3–5.
+ * Stage 4: query_context / impact_analysis / get_side_effects are live; record_session is a stub (stage 5).
  */
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { GraphDb } from "./db.js";
 import { fullScan, watchProject } from "./watcher.js";
+import { GraphQuery, formatSubgraph } from "./query.js";
 
 let db: GraphDb | null = null;
 let scanState = { files: 0, lastUpdated: null as string | null };
@@ -41,6 +42,16 @@ const stub = (tool: string) => async () => ({
   ],
 });
 
+function textResult(text: string) {
+  return { content: [{ type: "text" as const, text }] };
+}
+
+function riskLabel(affectedFileCount: number): "low" | "medium" | "high" {
+  if (affectedFileCount <= 1) return "low";
+  if (affectedFileCount <= 4) return "medium";
+  return "high";
+}
+
 export function registerTools(server: McpServer): void {
   server.tool(
     "graph_query_context",
@@ -50,7 +61,27 @@ export function registerTools(server: McpServer): void {
       symbol: z.string().optional().describe("Optional symbol name to focus on"),
       depth: z.number().int().min(1).max(10).default(3).describe("Traversal depth"),
     },
-    stub("graph.query_context")
+    async ({ path: p, symbol, depth }) => {
+      const q = new GraphQuery(getDb());
+      const fileNode = q.findFile(p) ?? q.findFileBySuffix(p);
+      const seed = symbol ? (q.findSymbol(symbol, fileNode?.path ?? undefined) ?? fileNode) : fileNode;
+      if (!seed) {
+        return textResult(JSON.stringify({ ok: false, error: `Not found in index: ${p}${symbol ? ` (symbol: ${symbol})` : ""}` }, null, 2));
+      }
+      const g = q.subgraph(seed.id, depth);
+      return textResult(
+        JSON.stringify(
+          {
+            ok: true,
+            seed: seed.path ?? seed.name,
+            node_count: g.nodes.length,
+            subgraph: formatSubgraph(g),
+          },
+          null,
+          2
+        )
+      );
+    }
   );
 
   server.tool(
@@ -60,7 +91,31 @@ export function registerTools(server: McpServer): void {
       path: z.string().describe("File path to be changed"),
       change: z.string().describe("Description of the planned change"),
     },
-    stub("graph.impact_analysis")
+    async ({ path: p, change }) => {
+      const q = new GraphQuery(getDb());
+      const { affected, tables } = q.impact(p);
+      const files = affected.filter((n) => n.kind === "file");
+      const symbols = affected.filter((n) => n.kind === "symbol");
+      return textResult(
+        JSON.stringify(
+          {
+            ok: files.length > 0,
+            target: p,
+            change,
+            affected_files: files.map((f) => f.path),
+            affected_symbols: symbols.map((s) => `${s.name} (${s.path})`),
+            tables_touched: tables.map((t) => t.name),
+            risk: riskLabel(files.length),
+            note:
+              files.length === 0
+                ? "Target not found in index — file may be unindexed or path is wrong."
+                : `${files.length - 1} downstream file(s) may break if this change is breaking.`,
+          },
+          null,
+          2
+        )
+      );
+    }
   );
 
   server.tool(
@@ -69,7 +124,23 @@ export function registerTools(server: McpServer): void {
     {
       path: z.string().describe("File path (relative to project root)"),
     },
-    stub("graph.get_side_effects")
+    async ({ path: p }) => {
+      const q = new GraphQuery(getDb());
+      const fx = q.sideEffects(p);
+      const found = fx.reads_tables.length + fx.writes_tables.length + fx.calls.length > 0;
+      return textResult(
+        JSON.stringify(
+          {
+            ok: found,
+            target: p,
+            ...fx,
+            note: found ? undefined : "No indexed side effects (or file not in index).",
+          },
+          null,
+          2
+        )
+      );
+    }
   );
 
   server.tool(
