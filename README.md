@@ -1,22 +1,22 @@
 # memory_graph_mcp
 
-MCP-сервер, строящий и поддерживающий **постоянный граф знаний проекта**: AST-зависимости кода, связи бизнес-логики ↔ схема БД, история дебаг-сессий, неявные сайд-эффекты.
+An MCP server that builds and maintains a **persistent project knowledge graph**: AST code dependencies, business-logic ↔ database-schema links, debugging-session history, and implicit side effects.
 
-При запросе фичи агент получает **подграф зависимостей**, а не список похожих файлов — защита от поломки смежных модулей.
+When a feature is requested, the agent receives a **dependency subgraph**, not a list of similar files — protecting adjacent modules from breaking changes.
 
 ## Tools (v0.1.0)
 
-| Tool | Назначение |
+| Tool | Purpose |
 |---|---|
-| `graph_query_context` | файл/символ → подграф зависимостей + смежные модули + связанные сессии |
-| `graph_impact_analysis` | планируемое изменение → затронутые узлы, таблицы и уровень риска |
-| `graph_get_side_effects` | неявные эффекты модуля: чтение/запись таблиц, вызовы |
-| `graph_record_session` | фиксация обсуждения/дебага с решениями и багами, привязка к файлам |
-| `graph_stats` | состояние индекса: узлы, рёбра, файлы, время обновления |
+| `graph_query_context` | file/symbol → dependency subgraph + adjacent modules + related sessions |
+| `graph_impact_analysis` | planned change → affected nodes, tables, and risk level |
+| `graph_get_side_effects` | implicit module effects: table reads/writes, calls |
+| `graph_record_session` | record a discussion/debug session with decisions and bugs, linked to files |
+| `graph_stats` | index state: nodes, edges, files, last update time |
 
-## Установка
+## Installation
 
-Требуется Node.js ≥ 18.
+Requires Node.js ≥ 18.
 
 ```bash
 git clone git@github.com:FuryCow/memory_graph_mcp.git
@@ -25,15 +25,15 @@ npm install
 npm run build
 ```
 
-## Подключение
+## Connecting
 
-Сервер работает по stdio. Укажите в конфиге MCP-клиента рабочей директорией **корень индексируемого проекта** — индекс строится по `process.cwd()` и хранится в `.memory-graph/graph.db`.
+The server communicates over stdio. Set the **root of the project you want to index** as the working directory in your MCP client config — the index is built from `process.cwd()` and stored in `.memory-graph/graph.db`.
 
 ### Claude Desktop / Cursor
 
-Конфигурация одинакова для обоих клиентов, различается только расположение конфиг-файла:
+The configuration is identical for both clients; only the config file location differs:
 
-- **Claude Desktop:** `claude_desktop_config.json` (меню → Settings → Developer → Edit Config)
+- **Claude Desktop:** `claude_desktop_config.json` (menu → Settings → Developer → Edit Config)
 - **Cursor:** `~/.cursor/mcp.json`
 
 ```json
@@ -48,20 +48,20 @@ npm run build
 }
 ```
 
-> На Windows пути экранируйте (`C:\\path\\to\\...`) или используйте прямые слэши (`C:/path/to/...`).
+> On Windows, escape paths (`C:\\path\\to\\...`) or use forward slashes (`C:/path/to/...`).
 
-## Графовая модель
+## Graph model
 
-- **Узлы:** `File`, `Symbol`, `Table` (журнал: `Session`, `Decision`, `Bug`)
-- **Рёбра:** `imports`, `calls`, `contains`, `reads_table`, `writes_table`
+- **Nodes:** `File`, `Symbol`, `Table` (journal: `Session`, `Decision`, `Bug`)
+- **Edges:** `imports`, `calls`, `contains`, `reads_table`, `writes_table`
 
-Индексер (tree-sitter) извлекает импорты, определения и вызовы функций, обращения к БД из SQL-строк (`SELECT/INSERT/UPDATE/DELETE`) и ORM-паттерны (Prisma, drizzle). Watcher (chokidar) инкрементально пересчитывает граф при изменении файлов (< 1 с).
+The indexer (tree-sitter) extracts imports, function definitions and calls, and database access from SQL strings (`SELECT/INSERT/UPDATE/DELETE`) and ORM patterns (Prisma, drizzle). A watcher (chokidar) incrementally re-indexes the graph on file changes (< 1 s).
 
-## Стек
+## Stack
 
 TypeScript / Node, `@modelcontextprotocol/sdk`, `tree-sitter`, `better-sqlite3`, `chokidar`.
 
-## Разработка
+## Development
 
 ```bash
 npm run build   # tsc
@@ -69,16 +69,6 @@ npm test        # node --test dist/test/*.test.js
 npm run lint    # tsc --noEmit
 ```
 
-## Статус
-
-- ✅ Этап 0: репозиторий инициализирован, пуш в origin
-- ✅ Этап 1: скелет проекта, MCP-сервер отвечает на `tools/list`
-- ✅ Этап 2: AST-индексер (tree-sitter), SQLite-персистентность
-- ✅ Этап 3: инкрементальные обновления (chokidar watcher, mtime-кэш)
-- ✅ Этап 4: retrieval — BFS-подграфы, impact analysis, сайд-эффекты, LLM-формат
-- ✅ Этап 5: session journal — сессии/решения/баги, связанные сессии в query_context
-- ✅ Этап 6: публикация — README, лицензия, тег v0.1.0
-
-## Лицензия
+## License
 
 MIT
