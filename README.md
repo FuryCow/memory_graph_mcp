@@ -29,21 +29,12 @@ npm run build
 
 Сервер работает по stdio. Укажите в конфиге MCP-клиента рабочей директорией **корень индексируемого проекта** — индекс строится по `process.cwd()` и хранится в `.memory-graph/graph.db`.
 
-### Claude Desktop (`claude_desktop_config.json`)
+### Claude Desktop / Cursor
 
-```json
-{
-  "mcpServers": {
-    "memory-graph": {
-      "command": "node",
-      "args": ["C:\\path\\to\\memory_graph_mcp\\dist\\src\\index.js"],
-      "cwd": "C:\\path\\to\\your\\project"
-    }
-  }
-}
-```
+Конфигурация одинакова для обоих клиентов, различается только расположение конфиг-файла:
 
-### Cursor (`~/.cursor/mcp.json`)
+- **Claude Desktop:** `claude_desktop_config.json` (меню → Settings → Developer → Edit Config)
+- **Cursor:** `~/.cursor/mcp.json`
 
 ```json
 {
@@ -57,7 +48,7 @@ npm run build
 }
 ```
 
-> На Windows путь к `index.js` экранируйте (`\\`) или используйте прямой слэш.
+> На Windows пути экранируйте (`C:\\path\\to\\...`) или используйте прямые слэши (`C:/path/to/...`).
 
 ## Графовая модель
 
