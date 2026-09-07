@@ -11,6 +11,9 @@ build/
 *.sqlite
 *.sqlite3
 
+# MCP index
+.memory-graph/
+
 # Environment
 .env
 .env.*
