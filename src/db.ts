@@ -1,7 +1,7 @@
 /**
  * SQLite persistence for the knowledge graph.
- * Nodes: File, Symbol, Table. Edges: imports, calls, reads_table, writes_table.
- * (Session/Decision/Bug arrive in stage 5.)
+ * Nodes: File, Symbol, Table (code graph). Sessions/Decisions/Bugs live in
+ * dedicated journal tables (stage 5), linked to file nodes via session_files.
  */
 import Database from "better-sqlite3";
 import fs from "node:fs";
@@ -25,7 +25,7 @@ export interface EdgeRow {
   kind: EdgeKind;
 }
 
-export const SCHEMA_VERSION = 1;
+export const SCHEMA_VERSION = 2;
 
 export class GraphDb {
   readonly db: Database.Database;
@@ -68,6 +68,27 @@ export class GraphDb {
       );
       CREATE INDEX IF NOT EXISTS idx_edges_src ON edges(src);
       CREATE INDEX IF NOT EXISTS idx_edges_dst ON edges(dst);
+    `);
+    // Stage 5: session journal
+    this.db.exec(`
+      CREATE TABLE IF NOT EXISTS sessions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        topic TEXT NOT NULL,
+        created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+      );
+      CREATE TABLE IF NOT EXISTS session_items (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        session_id INTEGER NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
+        type TEXT NOT NULL CHECK (type IN ('decision','bug')),
+        text TEXT NOT NULL,
+        resolved INTEGER NOT NULL DEFAULT 1
+      );
+      CREATE TABLE IF NOT EXISTS session_files (
+        session_id INTEGER NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
+        file_node_id INTEGER NOT NULL REFERENCES nodes(id),
+        PRIMARY KEY (session_id, file_node_id)
+      );
+      CREATE INDEX IF NOT EXISTS idx_session_files_file ON session_files(file_node_id);
     `);
     this.db
       .prepare(
@@ -126,6 +147,60 @@ export class GraphDb {
       edges[r.kind] = r.c;
     }
     return { nodes, edges };
+  }
+
+  // ── Session journal (stage 5) ──────────────────────────────────────────
+
+  recordSession(input: {
+    topic: string;
+    decisions?: string[];
+    bugs?: string[];
+    fileNodeIds?: number[];
+  }): number {
+    const tx = this.db.transaction(() => {
+      const { lastInsertRowid } = this.db
+        .prepare("INSERT INTO sessions (topic) VALUES (?)")
+        .run(input.topic);
+      const sessionId = Number(lastInsertRowid);
+      const insItem = this.db.prepare(
+        "INSERT INTO session_items (session_id, type, text) VALUES (?, ?, ?)"
+      );
+      for (const d of input.decisions ?? []) insItem.run(sessionId, "decision", d);
+      for (const b of input.bugs ?? []) insItem.run(sessionId, "bug", b);
+      const insFile = this.db.prepare(
+        "INSERT OR IGNORE INTO session_files (session_id, file_node_id) VALUES (?, ?)"
+      );
+      for (const fid of input.fileNodeIds ?? []) insFile.run(sessionId, fid);
+      return sessionId;
+    });
+    return tx();
+  }
+
+  /** Sessions linked to a file node (newest first). */
+  sessionsForFile(fileNodeId: number): Array<{
+    id: number;
+    topic: string;
+    created_at: string;
+    decisions: string[];
+    bugs: string[];
+  }> {
+    const rows = this.db
+      .prepare(
+        `SELECT DISTINCT s.id, s.topic, s.created_at
+         FROM sessions s JOIN session_files sf ON sf.session_id = s.id
+         WHERE sf.file_node_id = ? ORDER BY s.created_at DESC`
+      )
+      .all(fileNodeId) as Array<{ id: number; topic: string; created_at: string }>;
+    const items = this.db.prepare(
+      "SELECT session_id, type, text FROM session_items"
+    ).all() as Array<{ session_id: number; type: string; text: string }>;
+    const bySession = new Map<number, { decisions: string[]; bugs: string[] }>();
+    for (const it of items) {
+      if (!bySession.has(it.session_id)) bySession.set(it.session_id, { decisions: [], bugs: [] });
+      const bucket = bySession.get(it.session_id)!;
+      (it.type === "decision" ? bucket.decisions : bucket.bugs).push(it.text);
+    }
+    return rows.map((r) => ({ ...r, ...(bySession.get(r.id) ?? { decisions: [], bugs: [] }) }));
   }
 
   close(): void {

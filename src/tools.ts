@@ -29,19 +29,6 @@ function getDb(): GraphDb {
   return db;
 }
 
-const stub = (tool: string) => async () => ({
-  content: [
-    {
-      type: "text" as const,
-      text: JSON.stringify(
-        { ok: true, tool, stage: "stub", message: "Not implemented yet (stages 3–5)" },
-        null,
-        2
-      ),
-    },
-  ],
-});
-
 function textResult(text: string) {
   return { content: [{ type: "text" as const, text }] };
 }
@@ -69,6 +56,7 @@ export function registerTools(server: McpServer): void {
         return textResult(JSON.stringify({ ok: false, error: `Not found in index: ${p}${symbol ? ` (symbol: ${symbol})` : ""}` }, null, 2));
       }
       const g = q.subgraph(seed.id, depth);
+      const sessions = getDb().sessionsForFile(seed.id);
       return textResult(
         JSON.stringify(
           {
@@ -76,6 +64,13 @@ export function registerTools(server: McpServer): void {
             seed: seed.path ?? seed.name,
             node_count: g.nodes.length,
             subgraph: formatSubgraph(g),
+            related_sessions: sessions.map((s) => ({
+              id: s.id,
+              topic: s.topic,
+              created_at: s.created_at,
+              decisions: s.decisions,
+              bugs: s.bugs,
+            })),
           },
           null,
           2
@@ -145,14 +140,35 @@ export function registerTools(server: McpServer): void {
 
   server.tool(
     "graph_record_session",
-    "Record a discussion/debug session with decisions and bugs.",
+    "Record a discussion/debug session with decisions and bugs, linked to related files.",
     {
       topic: z.string().describe("Session topic"),
       decisions: z.array(z.string()).optional().describe("Decisions made"),
       bugs: z.array(z.string()).optional().describe("Bugs encountered/fixed"),
-      related_paths: z.array(z.string()).optional().describe("Related file paths"),
+      related_paths: z.array(z.string()).optional().describe("Related file paths (relative to project root)"),
     },
-    stub("graph.record_session")
+    async ({ topic, decisions, bugs, related_paths }) => {
+      const d = getDb();
+      const q = new GraphQuery(d);
+      const fileNodeIds: number[] = [];
+      for (const p of related_paths ?? []) {
+        const f = q.findFile(p) ?? q.findFileBySuffix(p);
+        if (f) fileNodeIds.push(f.id);
+      }
+      const id = d.recordSession({ topic, decisions, bugs, fileNodeIds });
+      return textResult(
+        JSON.stringify(
+          {
+            ok: true,
+            session_id: id,
+            linked_files: fileNodeIds.length,
+            unlinked_paths: (related_paths ?? []).length - fileNodeIds.length,
+          },
+          null,
+          2
+        )
+      );
+    }
   );
 
   server.tool(
