@@ -36,7 +36,7 @@ npm run build
   "mcpServers": {
     "memory-graph": {
       "command": "node",
-      "args": ["F:\\pets\\memory_graph_mcp\\dist\\src\\index.js"],
+      "args": ["C:\\path\\to\\memory_graph_mcp\\dist\\src\\index.js"],
       "cwd": "C:\\path\\to\\your\\project"
     }
   }
