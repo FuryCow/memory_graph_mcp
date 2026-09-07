@@ -16,4 +16,7 @@ TypeScript / Node, `@modelcontextprotocol/sdk`, `tree-sitter`, `better-sqlite3`,
 
 ## Статус
 
-🚧 В разработке. Этап 0 (инициализация репозитория) выполнен.
+- ✅ Этап 0: репозиторий инициализирован, пуш в origin
+- ✅ Этап 1: скелет проекта, MCP-сервер отвечает на `tools/list`
+- ✅ Этап 2: AST-индексер (tree-sitter) — File/Symbol/Table узлы, imports/calls/reads_table/writes_table рёбра, SQL-строки + Prisma/drizzle-паттерны, SQLite-персистентность
+- 🚧 Этап 3: инкрементальные обновления (watcher)
