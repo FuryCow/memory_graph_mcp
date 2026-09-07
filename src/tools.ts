@@ -5,26 +5,24 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { GraphDb } from "./db.js";
-import { indexFile } from "./indexer.js";
-import { listSourceFiles } from "./walker.js";
-import fs from "node:fs";
+import { fullScan, watchProject } from "./watcher.js";
 
 let db: GraphDb | null = null;
-let indexed = false;
+let scanState = { files: 0, lastUpdated: null as string | null };
+let watcherStarted = false;
 
 function getDb(): GraphDb {
-  if (!db) db = new GraphDb(GraphDb.defaultPath(process.cwd()));
-  if (!indexed) {
-    indexed = true;
-    const root = process.cwd();
-    for (const rel of listSourceFiles(root)) {
-      try {
-        const abs = root.replace(/\\/g, "/") + "/" + rel;
-        const source = fs.readFileSync(abs, "utf8");
-        indexFile(db, root, rel, source);
-      } catch {
-        // skip unreadable files
-      }
+  if (!db) {
+    db = new GraphDb(GraphDb.defaultPath(process.cwd()));
+    scanState = fullScan(db, process.cwd());
+  }
+  if (!watcherStarted) {
+    watcherStarted = true;
+    try {
+      watchProject(db, process.cwd());
+    } catch (err) {
+      // watcher is best-effort; graph still works from the initial scan
+      process.stderr.write(`memory-graph-mcp: watcher failed to start: ${String(err)}\n`);
     }
   }
   return db;
@@ -88,7 +86,7 @@ export function registerTools(server: McpServer): void {
 
   server.tool(
     "graph_stats",
-    "Return index state: node/edge counts, last update time.",
+    "Return index state: node/edge counts, files indexed, last update time.",
     {},
     async () => {
       const d = getDb();
@@ -97,7 +95,11 @@ export function registerTools(server: McpServer): void {
         content: [
           {
             type: "text" as const,
-            text: JSON.stringify({ ok: true, ...s }, null, 2),
+            text: JSON.stringify(
+              { ok: true, files: scanState.files, last_updated: scanState.lastUpdated, ...s },
+              null,
+              2
+            ),
           },
         ],
       };
