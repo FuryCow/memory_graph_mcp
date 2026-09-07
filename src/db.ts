@@ -167,10 +167,14 @@ export class GraphDb {
       );
       for (const d of input.decisions ?? []) insItem.run(sessionId, "decision", d);
       for (const b of input.bugs ?? []) insItem.run(sessionId, "bug", b);
+      // skip file node ids that don't exist (defensive: FK constraint would fail)
       const insFile = this.db.prepare(
         "INSERT OR IGNORE INTO session_files (session_id, file_node_id) VALUES (?, ?)"
       );
-      for (const fid of input.fileNodeIds ?? []) insFile.run(sessionId, fid);
+      const exists = this.db.prepare("SELECT 1 FROM nodes WHERE id = ?");
+      for (const fid of input.fileNodeIds ?? []) {
+        if (exists.get(fid)) insFile.run(sessionId, fid);
+      }
       return sessionId;
     });
     return tx();
