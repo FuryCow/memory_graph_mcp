@@ -6,7 +6,7 @@
 
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![MCP](https://img.shields.io/badge/Model_Context_Protocol-stdio-8A2BE2)](https://modelcontextprotocol.io)
-[![Tests](https://img.shields.io/badge/tests-21%2F21-brightgreen)](#development)
+[![Tests](https://img.shields.io/badge/tests-31%2F31-brightgreen)](#-development)
 [![License](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 [![Node](https://img.shields.io/badge/node-%E2%89%A518-339933?logo=nodedotjs&logoColor=white)](https://nodejs.org)
 
