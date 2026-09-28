@@ -60,6 +60,20 @@ npm install -g git+ssh://git@github.com/FuryCow/memory_graph_mcp.git#v0.1.1
 > Pin the tag (`#v0.1.1`) so npm doesn't resolve the package from a stale tarball cache.
 > If a previous install failed halfway, clear the cache first: `npm cache clean --force`.
 
+#### ⚠️ npm ≥ 11.8 on Windows: git deps install as dangling junctions
+
+npm 11.8 has a bug where a git dependency is installed as a **junction into the npm cache**
+(`...\npm-cache\_cacache\tmp\git-cloneXXXX`), and the cache temp dir is deleted afterwards —
+leaving a broken install that fails with `TAR_ENTRY_ERROR ENOENT` storms and
+`spawn cmd.exe ENOENT` during lifecycle scripts. Install from a packed tarball instead:
+
+```powershell
+npm pack git+ssh://git@github.com/FuryCow/memory_graph_mcp.git#v0.1.1
+npm install -g .\memory_graph_mcp-0.1.1.tgz
+```
+
+This extracts the package normally (no junction) and runs fine on Windows.
+
 ### Option B: clone and build manually
 
 ```bash
