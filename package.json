@@ -1,6 +1,6 @@
 {
   "name": "memory_graph_mcp",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "MCP server building a persistent project knowledge graph: AST dependencies, DB schema links, debug sessions, side effects",
   "type": "module",
   "main": "dist/src/index.js",
@@ -12,11 +12,10 @@
     "dev": "tsc --watch",
     "start": "node dist/src/index.js",
     "test": "node --test dist/test/*.test.js",
-    "lint": "tsc --noEmit",
-    "prepare": "npm run build"
+    "lint": "tsc --noEmit"
   },
   "files": [
-    "dist/src",
+    "dist",
     "README.md",
     "LICENSE"
   ],

@@ -49,13 +49,16 @@ Instead of *"here are 5 files matching `users`"* the agent learns: *changing thi
 
 ### Option A: install directly from GitHub (recommended)
 
-No cloning or building needed — npm compiles the package on install:
+Prebuilt JavaScript is committed to the repo — **no TypeScript toolchain needed on install**:
 
 ```bash
-npm install -g git+ssh://git@github.com/FuryCow/memory_graph_mcp.git
+npm install -g git+ssh://git@github.com/FuryCow/memory_graph_mcp.git#v0.1.1
 ```
 
 (or `git+https://...` if you don't have SSH keys set up)
+
+> Pin the tag (`#v0.1.1`) so npm doesn't resolve the package from a stale tarball cache.
+> If a previous install failed halfway, clear the cache first: `npm cache clean --force`.
 
 ### Option B: clone and build manually
 
