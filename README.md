@@ -47,6 +47,18 @@ Instead of *"here are 5 files matching `users`"* the agent learns: *changing thi
 
 > Requires Node.js ≥ 18
 
+### Option A: install directly from GitHub (recommended)
+
+No cloning or building needed — npm compiles the package on install:
+
+```bash
+npm install -g git+ssh://git@github.com/FuryCow/memory_graph_mcp.git
+```
+
+(or `git+https://...` if you don't have SSH keys set up)
+
+### Option B: clone and build manually
+
 ```bash
 git clone git@github.com:FuryCow/memory_graph_mcp.git
 cd memory_graph_mcp
@@ -69,13 +81,20 @@ The configuration is identical for both clients; only the config file location d
 {
   "mcpServers": {
     "memory-graph": {
-      "command": "node",
-      "args": ["/absolute/path/to/memory_graph_mcp/dist/src/index.js"],
+      "command": "memory-graph-mcp",
       "cwd": "/absolute/path/to/your/project"
     }
   }
 }
 ```
+
+> With **Option B**, point `command` at node and the entry file instead:
+>
+> ```json
+> "command": "node",
+> "args": ["/absolute/path/to/memory_graph_mcp/dist/src/index.js"],
+> "cwd": "/absolute/path/to/your/project"
+> ```
 
 > 💡 On Windows, escape paths (`C:\\path\\to\\...`) or use forward slashes (`C:/path/to/...`).
 
